@@ -58,7 +58,9 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
+      "router": {
+        "origin": "https://perception-app.vercel.app"
+      }
     }
   }
 }

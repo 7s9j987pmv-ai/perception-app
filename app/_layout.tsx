@@ -66,7 +66,7 @@ export default function RootLayout() {
             <Stack.Screen name="locked-in" options={{ headerShown: false }} />
             <Stack.Screen name="profile-create" options={{ headerShown: false }} />
             <Stack.Screen name="invite" options={{ headerShown: false }} />
-            <Stack.Screen name="rate/[code]" options={{ headerShown: false }} />
+            <Stack.Screen name="rate" options={{ headerShown: false }} />
             <Stack.Screen name="rate-complete" options={{ headerShown: false }} />
             <Stack.Screen name="results-intro" options={{ headerShown: false }} />
             <Stack.Screen name="blind-spot-guess" options={{ headerShown: false }} />
