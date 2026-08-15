@@ -8,6 +8,7 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,6 +35,7 @@ export default function ProfileCreateScreen() {
   const [gender, setGender] = useState('');
   const [focused, setFocused] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const avatarScales = useRef(AVATARS.map(() => new Animated.Value(1))).current;
 
@@ -60,6 +62,7 @@ export default function ProfileCreateScreen() {
     if (!name.trim()) return;
     console.log('[profile-create] create link pressed', name, selectedAvatar, ageRange, gender);
     setLoading(true);
+    setError(null);
     try {
       const selfScoresJson = await AsyncStorage.getItem(SELF_SCORES_KEY);
       const selfScores = selfScoresJson ? JSON.parse(selfScoresJson) : {};
@@ -73,11 +76,14 @@ export default function ProfileCreateScreen() {
         selfScores,
         createdAt: new Date().toISOString(),
       };
+      console.log('[profile-create] saving profile', code);
+      // saveProfile saves locally AND syncs to Supabase
       await saveProfile(profile);
-      console.log('[profile-create] profile saved', code);
+      console.log('[profile-create] profile saved, navigating to invite', code);
       router.push('/invite');
-    } catch (e) {
+    } catch (e: any) {
       console.error('[profile-create] error', e);
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -187,6 +193,11 @@ export default function ProfileCreateScreen() {
           })}
         </View>
 
+        {/* Error message */}
+        {error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : null}
+
         {/* CTA */}
         <View style={styles.ctaContainer}>
           <GradientButton
@@ -292,6 +303,13 @@ const styles = StyleSheet.create({
   pillTextSelected: {
     fontFamily: 'SpaceGrotesk_700Bold',
     color: COLORS.bg,
+  },
+  errorText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: COLORS.self,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   ctaContainer: {
     marginTop: 8,

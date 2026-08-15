@@ -11,13 +11,12 @@ import { COLORS } from '@/constants/Colors';
 import { GradientButton } from '@/components/GradientButton';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { PerceptionBar } from '@/components/PerceptionBar';
-import { loadProfile, loadResponses } from '@/utils/storage';
-import { calculateResults } from '@/utils/results';
+import { loadProfile } from '@/utils/storage';
 import { getBlindSpotInsight } from '@/utils/insights';
 import { PerceptionResults, Profile } from '@/types/perception';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const RESULTS_KEY = 'perception_results_cache';
+const RESULTS_CACHE_KEY = 'perception_results_cache';
 
 interface InsightCardProps {
   icon: string;
@@ -46,19 +45,20 @@ export default function ResultsScreen() {
 
   useEffect(() => {
     const load = async () => {
-      console.log('[results] loading results');
+      console.log('[results] loading results from cache');
       const p = await loadProfile();
       if (!p) { router.replace('/'); return; }
       setProfile(p);
 
-      const cached = await AsyncStorage.getItem(RESULTS_KEY);
+      const cached = await AsyncStorage.getItem(RESULTS_CACHE_KEY);
       if (cached) {
+        console.log('[results] loaded results from AsyncStorage cache');
         setResults(JSON.parse(cached));
         return;
       }
-      const responses = await loadResponses(p.code);
-      const r = calculateResults(p, responses);
-      setResults(r);
+      // No cache — redirect to results-intro to re-fetch
+      console.warn('[results] no cached results, redirecting to results-intro');
+      router.replace('/results-intro');
     };
     load();
   }, []);
@@ -81,12 +81,16 @@ export default function ResultsScreen() {
     );
   }
 
-  const avgGapDisplay = results.avgGap.toFixed(1);
+  const avgGapDisplay = Number(results.avgGap).toFixed(1);
   const responseCountDisplay = String(results.responseCount);
   const blindSpotInsight = getBlindSpotInsight(results.blindSpot.trait.key, results.blindSpot.diff);
   const positiveInsight = getBlindSpotInsight(results.positiveSurprise.trait.key, results.positiveSurprise.diff);
   const calledItInsight = getBlindSpotInsight(results.youCalledIt.trait.key, results.youCalledIt.diff);
-  const strongestInsight = `People consistently rate you ${results.strongestTrait.avgOtherScore.toFixed(1)}/10 on this.`;
+  const strongestAvg = Number(results.strongestTrait.avgOtherScore).toFixed(1);
+  const strongestInsight = `People consistently rate you ${strongestAvg}/10 on this.`;
+  const blindSpotSelf = String(results.blindSpot.selfScore);
+  const blindSpotOther = Number(results.blindSpot.avgOtherScore).toFixed(1);
+  const positiveSurpriseOther = Number(results.positiveSurprise.avgOtherScore).toFixed(1);
 
   return (
     <ScrollView
@@ -129,7 +133,7 @@ export default function ResultsScreen() {
         bgColors={['rgba(255,107,92,0.12)', 'rgba(139,92,246,0.06)']}
         traitEmoji={results.blindSpot.trait.emoji}
         traitLabel={results.blindSpot.trait.label}
-        insight={blindSpotInsight || `You rated yourself ${results.blindSpot.selfScore}/10, they said ${results.blindSpot.avgOtherScore.toFixed(1)}/10.`}
+        insight={blindSpotInsight || `You rated yourself ${blindSpotSelf}/10, they said ${blindSpotOther}/10.`}
       />
       <InsightCard
         icon="✨"
@@ -138,7 +142,7 @@ export default function ResultsScreen() {
         bgColors={['rgba(34,197,94,0.08)']}
         traitEmoji={results.positiveSurprise.trait.emoji}
         traitLabel={results.positiveSurprise.trait.label}
-        insight={positiveInsight || `They rated you ${results.positiveSurprise.avgOtherScore.toFixed(1)}/10 — higher than you expected.`}
+        insight={positiveInsight || `They rated you ${positiveSurpriseOther}/10 — higher than you expected.`}
       />
       <InsightCard
         icon="🎯"

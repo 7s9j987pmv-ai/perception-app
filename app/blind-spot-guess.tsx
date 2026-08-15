@@ -12,12 +12,10 @@ import * as Haptics from 'expo-haptics';
 import { COLORS } from '@/constants/Colors';
 import { GradientButton } from '@/components/GradientButton';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { loadProfile, loadResponses } from '@/utils/storage';
-import { calculateResults } from '@/utils/results';
 import { PerceptionResults, TraitResult } from '@/types/perception';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const RESULTS_KEY = 'perception_results_cache';
+const RESULTS_CACHE_KEY = 'perception_results_cache';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -39,13 +37,15 @@ export default function BlindSpotGuessScreen() {
 
   useEffect(() => {
     const load = async () => {
-      console.log('[blind-spot-guess] loading results');
-      const profile = await loadProfile();
-      if (!profile) { router.replace('/'); return; }
-      const responses = await loadResponses(profile.code);
-      const r = calculateResults(profile, responses);
+      console.log('[blind-spot-guess] loading results from cache');
+      const cached = await AsyncStorage.getItem(RESULTS_CACHE_KEY);
+      if (!cached) {
+        console.warn('[blind-spot-guess] no cached results, redirecting to results-intro');
+        router.replace('/results-intro');
+        return;
+      }
+      const r: PerceptionResults = JSON.parse(cached);
       setResults(r);
-      await AsyncStorage.setItem(RESULTS_KEY, JSON.stringify(r));
 
       // Build 4 options: blind spot + 3 random others
       const others = r.traitResults

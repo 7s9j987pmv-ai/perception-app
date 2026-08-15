@@ -11,13 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { COLORS } from '@/constants/Colors';
 import { GradientButton } from '@/components/GradientButton';
-import { loadProfile, loadResponses } from '@/utils/storage';
-import { calculateResults } from '@/utils/results';
 import { getBlindSpotInsight } from '@/utils/insights';
 import { PerceptionResults } from '@/types/perception';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const RESULTS_KEY = 'perception_results_cache';
+const RESULTS_CACHE_KEY = 'perception_results_cache';
 
 function useCountUp(target: number, duration: number = 900) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -57,17 +55,14 @@ export default function BlindSpotRevealScreen() {
 
   useEffect(() => {
     const load = async () => {
-      console.log('[blind-spot-reveal] loading results');
-      const cached = await AsyncStorage.getItem(RESULTS_KEY);
+      console.log('[blind-spot-reveal] loading results from cache');
+      const cached = await AsyncStorage.getItem(RESULTS_CACHE_KEY);
       if (cached) {
         setResults(JSON.parse(cached));
         return;
       }
-      const profile = await loadProfile();
-      if (!profile) { router.replace('/'); return; }
-      const responses = await loadResponses(profile.code);
-      const r = calculateResults(profile, responses);
-      setResults(r);
+      console.warn('[blind-spot-reveal] no cached results, redirecting to results-intro');
+      router.replace('/results-intro');
     };
     load();
   }, []);
@@ -91,10 +86,12 @@ export default function BlindSpotRevealScreen() {
   const { blindSpot } = results;
   const diff = blindSpot.diff;
   const absDiff = blindSpot.absDiff;
-  const diffLabel = diff >= 0 ? `+${absDiff.toFixed(1)} perception gap` : `-${absDiff.toFixed(1)} perception gap`;
+  const diffSign = diff >= 0 ? '+' : '-';
+  const diffLabel = `${diffSign}${Number(absDiff).toFixed(1)} perception gap`;
   const insight = getBlindSpotInsight(blindSpot.trait.key, diff);
   const selfDisplayStr = String(selfDisplay);
   const otherDisplayStr = String(otherDisplay);
+  const traitDisplay = `${blindSpot.trait.emoji} ${blindSpot.trait.label.toUpperCase()}`;
 
   return (
     <ScrollView
@@ -109,9 +106,7 @@ export default function BlindSpotRevealScreen() {
       <Text style={styles.label}>YOUR BIGGEST BLIND SPOT</Text>
 
       <Text style={styles.traitDisplay}>
-        {blindSpot.trait.emoji}
-        {' '}
-        {blindSpot.trait.label.toUpperCase()}
+        {traitDisplay}
       </Text>
 
       {/* Stat blocks */}

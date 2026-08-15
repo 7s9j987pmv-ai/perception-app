@@ -15,15 +15,16 @@ import { GradientButton } from '@/components/GradientButton';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { loadProfileByCode, saveResponse } from '@/utils/storage';
 import { TRAITS } from '@/constants/traits';
-import { Profile, Response } from '@/types/perception';
+import { PublicProfile } from '@/utils/api';
 
 type RateStep = 'intro' | 'rating';
 
 export default function RateScreen() {
   const insets = useSafeAreaInsets();
   const { code } = useLocalSearchParams<{ code: string }>();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [step, setStep] = useState<RateStep>('intro');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [scores, setScores] = useState<Record<string, number>>(() => {
@@ -32,6 +33,7 @@ export default function RateScreen() {
     return init;
   });
   const [submitting, setSubmitting] = useState(false);
+  const [alreadyRated, setAlreadyRated] = useState(false);
 
   const emojiScale = useRef(new Animated.Value(0.85)).current;
   const emojiOpacity = useRef(new Animated.Value(0)).current;
@@ -40,13 +42,16 @@ export default function RateScreen() {
   useEffect(() => {
     if (!code) return;
     console.log('[rate] loading profile for code', code);
+    setLoadingProfile(true);
     loadProfileByCode(code).then(p => {
       if (!p) {
         console.warn('[rate] profile not found for code', code);
         setNotFound(true);
       } else {
+        console.log('[rate] profile loaded', p.name);
         setProfile(p);
       }
+      setLoadingProfile(false);
     });
   }, [code]);
 
@@ -93,31 +98,49 @@ export default function RateScreen() {
       });
     } else {
       // Submit
-      console.log('[rate] submitting scores', code, scores);
+      console.log('[rate] submitting scores to Supabase', code, scores);
       setSubmitting(true);
       try {
-        const response: Response = {
-          id: Math.random().toString(36).slice(2),
-          scores,
-          createdAt: new Date().toISOString(),
-        };
-        await saveResponse(code!, response);
-        console.log('[rate] response saved', response.id);
+        const result = await saveResponse(code!, scores);
+        if (result.error) {
+          // 429 / already submitted — show friendly message and still navigate
+          const isAlreadyRated =
+            result.error.toLowerCase().includes('already') ||
+            result.error.toLowerCase().includes('429') ||
+            result.error.toLowerCase().includes('duplicate');
+          if (isAlreadyRated) {
+            console.log('[rate] already rated, navigating to rate-complete');
+            setAlreadyRated(true);
+          } else {
+            console.error('[rate] submit error', result.error);
+          }
+        } else {
+          console.log('[rate] response submitted, count', result.responseCount);
+        }
         router.replace('/rate-complete');
       } catch (e) {
-        console.error('[rate] submit error', e);
+        console.error('[rate] submit exception', e);
+        router.replace('/rate-complete');
       } finally {
         setSubmitting(false);
       }
     }
   };
 
+  if (loadingProfile) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.loadingText}>Loading…</Text>
+      </View>
+    );
+  }
+
   if (notFound) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
         <Text style={styles.notFoundEmoji}>🔍</Text>
         <Text style={styles.notFoundTitle}>Link not found or expired</Text>
-        <Text style={styles.notFoundSub}>This link might only work on the same device for now.</Text>
+        <Text style={styles.notFoundSub}>Double-check the link and try again.</Text>
         <GradientButton label="Find Out →" onPress={() => router.replace('/')} style={styles.notFoundBtn} />
       </View>
     );

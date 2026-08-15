@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Animated,
   Share,
-  Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,8 +13,8 @@ import { router } from 'expo-router';
 import { COLORS } from '@/constants/Colors';
 import { GradientButton } from '@/components/GradientButton';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
-import { loadProfile, loadResponses } from '@/utils/storage';
-import { Profile, Response } from '@/types/perception';
+import { loadProfile, loadResponseCount } from '@/utils/storage';
+import { Profile } from '@/types/perception';
 
 const DISPLAY_URL = (code: string) => `perception.app/rate/${code}`;
 const SHARE_URL = (code: string) => `perception://rate/${code}`;
@@ -23,7 +22,7 @@ const SHARE_URL = (code: string) => `perception://rate/${code}`;
 export default function InviteScreen() {
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [responses, setResponses] = useState<Response[]>([]);
+  const [responseCount, setResponseCount] = useState(0);
   const [copied, setCopied] = useState(false);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -39,12 +38,14 @@ export default function InviteScreen() {
     const p = await loadProfile();
     if (!p) return;
     setProfile(p);
-    const r = await loadResponses(p.code);
-    setResponses(r);
+
+    console.log('[invite] fetching response count from Supabase', p.code);
+    const count = await loadResponseCount(p.code);
+    setResponseCount(count);
 
     // Animate new dot fills
-    if (r.length > prevResponseCount.current) {
-      for (let i = prevResponseCount.current; i < Math.min(r.length, 3); i++) {
+    if (count > prevResponseCount.current) {
+      for (let i = prevResponseCount.current; i < Math.min(count, 3); i++) {
         Animated.spring(dotScales[i], {
           toValue: 1.0,
           useNativeDriver: true,
@@ -52,11 +53,11 @@ export default function InviteScreen() {
           bounciness: 8,
         }).start();
       }
-      prevResponseCount.current = r.length;
+      prevResponseCount.current = count;
     }
 
     // Animate progress bar
-    const pct = Math.min(r.length / 3, 1);
+    const pct = Math.min(count / 3, 1);
     Animated.timing(progressAnim, {
       toValue: pct,
       duration: 500,
@@ -67,7 +68,7 @@ export default function InviteScreen() {
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
-      console.log('[invite] polling for responses');
+      console.log('[invite] polling for response count');
       loadData();
     }, 5000);
     return () => clearInterval(interval);
@@ -97,27 +98,27 @@ export default function InviteScreen() {
   };
 
   const handleReveal = () => {
-    console.log('[invite] reveal pressed', responses.length);
+    console.log('[invite] reveal pressed, response count', responseCount);
     router.push('/results-intro');
   };
 
-  const responseCount = responses.length;
+  const headlineText =
+    responseCount === 0
+      ? '3 people stand between you and your Perception Gap.'
+      : responseCount === 1
+      ? '1 down. 2 to go.'
+      : responseCount === 2
+      ? 'One more person and the truth comes out 👀'
+      : "It's unlocked. 🔓";
 
-  const headlineText = responseCount === 0
-    ? '3 people stand between you and your Perception Gap.'
-    : responseCount === 1
-    ? '1 down. 2 to go.'
-    : responseCount === 2
-    ? 'One more person and the truth comes out 👀'
-    : "It's unlocked. 🔓";
-
-  const subtextContent = responseCount === 0
-    ? 'Still waiting… apparently your friends have jobs.'
-    : responseCount === 1
-    ? 'Someone already spilled. Keep going.'
-    : responseCount === 2
-    ? 'So close. Send it to one more.'
-    : 'Your Perception Gap is ready.';
+  const subtextContent =
+    responseCount === 0
+      ? 'Still waiting… apparently your friends have jobs.'
+      : responseCount === 1
+      ? 'Someone already spilled. Keep going.'
+      : responseCount === 2
+      ? 'So close. Send it to one more.'
+      : 'Your Perception Gap is ready.';
 
   const canReveal = responseCount >= 3;
   const displayUrl = profile ? DISPLAY_URL(profile.code) : '';

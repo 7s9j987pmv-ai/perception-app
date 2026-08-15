@@ -2,9 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '@/constants/Colors';
 import { GradientButton } from '@/components/GradientButton';
-import { loadProfile, loadResponses } from '@/utils/storage';
+import { loadProfile, loadAggregatedResults } from '@/utils/storage';
+import { mapApiResults } from '@/utils/api';
+
+const RESULTS_CACHE_KEY = 'perception_results_cache';
 
 function useFadeUp(delay: number) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -21,6 +25,8 @@ function useFadeUp(delay: number) {
 export default function ResultsIntroScreen() {
   const insets = useSafeAreaInsets();
   const [responseCount, setResponseCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const line1Anim = useFadeUp(0);
   const line2Anim = useFadeUp(1300);
@@ -29,19 +35,42 @@ export default function ResultsIntroScreen() {
 
   useEffect(() => {
     const load = async () => {
-      console.log('[results-intro] loading data');
+      console.log('[results-intro] loading data from Supabase');
       const profile = await loadProfile();
       if (!profile) {
+        console.warn('[results-intro] no profile, redirecting to home');
         router.replace('/');
         return;
       }
-      const responses = await loadResponses(profile.code);
-      if (responses.length < 3) {
-        console.warn('[results-intro] not enough responses, redirecting');
+
+      const data = await loadAggregatedResults(profile.code);
+      if (!data) {
+        console.warn('[results-intro] no results or insufficient responses, redirecting to invite');
         router.replace('/invite');
         return;
       }
-      setResponseCount(responses.length);
+
+      const { results: apiResults, profile: apiProfile } = data;
+
+      if (!apiResults) {
+        console.warn('[results-intro] empty results, redirecting to invite');
+        router.replace('/invite');
+        return;
+      }
+
+      console.log('[results-intro] results loaded, response count', apiResults.responseCount);
+      setResponseCount(apiResults.responseCount ?? 0);
+
+      // Map API results to local PerceptionResults type and cache
+      try {
+        const mapped = mapApiResults(apiResults, profile);
+        await AsyncStorage.setItem(RESULTS_CACHE_KEY, JSON.stringify(mapped));
+        console.log('[results-intro] results cached to AsyncStorage');
+      } catch (e) {
+        console.warn('[results-intro] failed to cache results', e);
+      }
+
+      setLoading(false);
     };
     load();
   }, []);
@@ -52,6 +81,14 @@ export default function ResultsIntroScreen() {
   };
 
   const countText = String(responseCount);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text style={styles.loadingText}>Calculating your perception…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
@@ -82,6 +119,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
     paddingHorizontal: 24,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    color: COLORS.muted,
   },
   content: {
     flex: 1,

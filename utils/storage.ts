@@ -1,17 +1,49 @@
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Profile, Response } from '@/types/perception';
+import {
+  apiCreateProfile,
+  apiGetProfile,
+  apiSubmitResponse,
+  apiGetResponseCount,
+  apiGetAggregatedResults,
+  PublicProfile,
+} from '@/utils/api';
+import { getDeviceId } from '@/utils/fingerprint';
 
 const PROFILE_KEY = 'perception_profile';
 const RESPONSES_KEY = (code: string) => `perception_responses_${code}`;
 const PROFILE_BY_CODE_KEY = (code: string) => `perception_profile_code_${code}`;
 
+// ─── Creator profile (local SecureStore cache) ────────────────────────────────
+
 export async function saveProfile(profile: Profile): Promise<void> {
   console.log('[storage] saveProfile', profile.code, profile.name);
   const json = JSON.stringify(profile);
-  await SecureStore.setItemAsync(PROFILE_KEY, json);
-  // Also store by code so raters on same device can find it
+  // Save locally first (fast, works offline)
+  try {
+    await SecureStore.setItemAsync(PROFILE_KEY, json);
+  } catch {
+    await AsyncStorage.setItem(PROFILE_KEY, json);
+  }
+  // Also store by code for same-device backward compat
   await AsyncStorage.setItem(PROFILE_BY_CODE_KEY(profile.code), json);
+
+  // Sync to Supabase
+  console.log('[storage] syncing profile to Supabase', profile.code);
+  const result = await apiCreateProfile({
+    code: profile.code,
+    name: profile.name,
+    avatar: profile.avatar,
+    ageRange: profile.ageRange,
+    gender: profile.gender,
+    selfScores: profile.selfScores,
+  });
+  if (!result.success) {
+    console.warn('[storage] Supabase sync failed (profile saved locally)', result.error);
+  } else {
+    console.log('[storage] profile synced to Supabase successfully');
+  }
 }
 
 export async function loadProfile(): Promise<Profile | null> {
@@ -23,7 +55,7 @@ export async function loadProfile(): Promise<Profile | null> {
       return null;
     }
     return JSON.parse(json) as Profile;
-  } catch (e) {
+  } catch {
     // SecureStore may throw on web — fall back to AsyncStorage
     try {
       const json = await AsyncStorage.getItem(PROFILE_KEY);
@@ -35,43 +67,93 @@ export async function loadProfile(): Promise<Profile | null> {
   }
 }
 
-export async function loadProfileByCode(code: string): Promise<Profile | null> {
+// ─── Public profile by code (cross-device via Supabase) ──────────────────────
+
+export async function loadProfileByCode(code: string): Promise<PublicProfile | null> {
   console.log('[storage] loadProfileByCode', code);
+  // Try Supabase first (cross-device)
+  try {
+    const { profile, error } = await apiGetProfile(code);
+    if (profile) {
+      console.log('[storage] loadProfileByCode: found in Supabase', code);
+      return profile;
+    }
+    if (error) {
+      console.warn('[storage] loadProfileByCode Supabase error', error);
+    }
+  } catch (e) {
+    console.warn('[storage] loadProfileByCode Supabase exception', e);
+  }
+
+  // Fallback: same-device local storage (backward compat)
   try {
     const json = await AsyncStorage.getItem(PROFILE_BY_CODE_KEY(code));
-    if (!json) return null;
-    return JSON.parse(json) as Profile;
+    if (json) {
+      console.log('[storage] loadProfileByCode: found in local storage (fallback)', code);
+      return JSON.parse(json) as PublicProfile;
+    }
   } catch (e) {
-    console.warn('[storage] loadProfileByCode error', e);
+    console.warn('[storage] loadProfileByCode local fallback error', e);
+  }
+
+  return null;
+}
+
+// ─── Responses (Supabase only) ────────────────────────────────────────────────
+
+export async function saveResponse(
+  code: string,
+  scores: Record<string, number>,
+): Promise<{ success: boolean; responseCount: number; error?: string }> {
+  console.log('[storage] saveResponse', code);
+  const fingerprint = await getDeviceId();
+  const result = await apiSubmitResponse(code, scores, fingerprint);
+  if (result.error) {
+    console.warn('[storage] saveResponse error', result.error);
+    return { success: false, responseCount: 0, error: result.error };
+  }
+  console.log('[storage] saveResponse success, count', result.responseCount);
+  return { success: true, responseCount: result.responseCount ?? 0 };
+}
+
+export async function loadResponseCount(code: string): Promise<number> {
+  console.log('[storage] loadResponseCount', code);
+  return apiGetResponseCount(code);
+}
+
+export async function loadAggregatedResults(
+  code: string,
+): Promise<{ results: any; profile: any } | null> {
+  console.log('[storage] loadAggregatedResults', code);
+  const data = await apiGetAggregatedResults(code);
+  if (data.error) {
+    console.warn('[storage] loadAggregatedResults error', data.error);
     return null;
   }
+  return { results: data.results, profile: data.profile };
 }
 
-export async function saveResponse(code: string, response: Response): Promise<void> {
-  console.log('[storage] saveResponse', code, response.id);
-  const existing = await loadResponses(code);
-  existing.push(response);
-  await AsyncStorage.setItem(RESPONSES_KEY(code), JSON.stringify(existing));
-}
+// ─── Backward compat (kept for any remaining callers) ────────────────────────
 
 export async function loadResponses(code: string): Promise<Response[]> {
-  console.log('[storage] loadResponses', code);
+  console.log('[storage] loadResponses (legacy, returns empty)', code);
   try {
     const json = await AsyncStorage.getItem(RESPONSES_KEY(code));
     if (!json) return [];
     return JSON.parse(json) as Response[];
-  } catch (e) {
-    console.warn('[storage] loadResponses error', e);
+  } catch {
     return [];
   }
 }
 
 export async function clearAll(): Promise<void> {
   console.log('[storage] clearAll');
-  await SecureStore.deleteItemAsync(PROFILE_KEY);
+  try {
+    await SecureStore.deleteItemAsync(PROFILE_KEY);
+  } catch { /* web */ }
   const keys = await AsyncStorage.getAllKeys();
   const perceptionKeys = keys.filter(k => k.startsWith('perception_'));
   if (perceptionKeys.length > 0) {
-    await AsyncStorage.multiRemove(perceptionKeys);
+    await Promise.all(perceptionKeys.map(k => AsyncStorage.removeItem(k)));
   }
 }
