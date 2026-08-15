@@ -78,7 +78,12 @@ export default function ProfileCreateScreen() {
       };
       console.log('[profile-create] saving profile', code);
       // saveProfile saves locally AND syncs to Supabase
-      await saveProfile(profile);
+      const result = await saveProfile(profile);
+      if (!result.success) {
+        console.error('[profile-create] saveProfile failed', result.error);
+        setError('Could not save your profile. Check your connection and try again.');
+        return;
+      }
       console.log('[profile-create] profile saved, navigating to invite', code);
       router.push('/invite');
     } catch (e: any) {
@@ -89,7 +94,7 @@ export default function ProfileCreateScreen() {
     }
   };
 
-  const canCreate = name.trim().length > 0;
+  const canCreate = name.trim().length > 0 && ageRange.length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -102,7 +107,7 @@ export default function ProfileCreateScreen() {
           { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 },
         ]}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
       >
         <Text style={styles.header}>Almost there.</Text>
         <Text style={styles.subtext}>Just enough so your results feel like yours.</Text>
@@ -172,6 +177,10 @@ export default function ProfileCreateScreen() {
             );
           })}
         </View>
+
+        {name.trim().length > 0 && !ageRange ? (
+          <Text style={styles.hintText}>Select an age range to continue</Text>
+        ) : null}
 
         {/* Gender */}
         <Text style={styles.sectionLabel}>Gender <Text style={styles.optional}>(optional)</Text></Text>
@@ -303,6 +312,13 @@ const styles = StyleSheet.create({
   pillTextSelected: {
     fontFamily: 'SpaceGrotesk_700Bold',
     color: COLORS.bg,
+  },
+  hintText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: COLORS.self,
+    marginTop: -16,
+    marginBottom: 16,
   },
   errorText: {
     fontFamily: 'Inter_400Regular',

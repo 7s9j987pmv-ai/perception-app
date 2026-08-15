@@ -36,7 +36,7 @@ export function AnimatedPressable({
   }, [scale]);
 
   return (
-    <Animated.View style={[{ transform: [{ scale }] }, disabled && { opacity: 0.5 }]}>
+    <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
         onPressIn={animateIn}
         onPressOut={animateOut}

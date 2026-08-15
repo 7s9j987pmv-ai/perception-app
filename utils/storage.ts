@@ -17,7 +17,7 @@ const PROFILE_BY_CODE_KEY = (code: string) => `perception_profile_code_${code}`;
 
 // ─── Creator profile (local SecureStore cache) ────────────────────────────────
 
-export async function saveProfile(profile: Profile): Promise<void> {
+export async function saveProfile(profile: Profile): Promise<{ success: boolean; error?: string }> {
   console.log('[storage] saveProfile', profile.code, profile.name);
   const json = JSON.stringify(profile);
   // Save locally first (fast, works offline)
@@ -40,10 +40,11 @@ export async function saveProfile(profile: Profile): Promise<void> {
     selfScores: profile.selfScores,
   });
   if (!result.success) {
-    console.warn('[storage] Supabase sync failed (profile saved locally)', result.error);
-  } else {
-    console.log('[storage] profile synced to Supabase successfully');
+    console.warn('[storage] Supabase sync failed', result.error);
+    return { success: false, error: result.error ?? 'Failed to sync to server' };
   }
+  console.log('[storage] profile synced to Supabase successfully');
+  return { success: true };
 }
 
 export async function loadProfile(): Promise<Profile | null> {
