@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Perception",
+    "slug": "perception",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon-qod.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/images/app-icon-qod.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0A14"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.placeholder.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-icon-qod.png",
+        "backgroundColor": "#0B0A14"
+      },
+      "package": "com.placeholder.app"
+    },
+    "web": {
+      "favicon": "./assets/images/newly.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-router",
+      "expo-web-browser",
+      "expo-secure-store"
+    ],
+    "scheme": "perception",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
+    }
+  }
+}
