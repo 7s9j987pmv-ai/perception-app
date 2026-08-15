@@ -23,11 +23,26 @@
         "foregroundImage": "./assets/images/app-icon-qod.png",
         "backgroundColor": "#0B0A14"
       },
-      "package": "com.placeholder.app"
+      "package": "com.placeholder.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "perception",
+              "host": "rate",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/images/newly.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "single"
     },
     "plugins": [
       "expo-font",

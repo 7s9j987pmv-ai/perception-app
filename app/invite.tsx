@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Share,
+  Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,14 +17,12 @@ import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { loadProfile, loadResponseCount } from '@/utils/storage';
 import { Profile } from '@/types/perception';
 
-const DISPLAY_URL = (code: string) => `perception.app/rate/${code}`;
-const SHARE_URL = (code: string) => `perception://rate/${code}`;
-
 export default function InviteScreen() {
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [responseCount, setResponseCount] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const dotScales = useRef([
@@ -33,6 +32,16 @@ export default function InviteScreen() {
   ]).current;
 
   const prevResponseCount = useRef(0);
+
+  useEffect(() => {
+    if (!profile) return;
+    if (Platform.OS === 'web') {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      setShareUrl(`${origin}/rate/${profile.code}`);
+    } else {
+      setShareUrl(`perception://rate/${profile.code}`);
+    }
+  }, [profile]);
 
   const loadData = useCallback(async () => {
     const p = await loadProfile();
@@ -75,22 +84,20 @@ export default function InviteScreen() {
   }, [loadData]);
 
   const handleCopy = async () => {
-    if (!profile) return;
-    const url = DISPLAY_URL(profile.code);
-    console.log('[invite] copy link pressed', url);
-    await Clipboard.setStringAsync(url);
+    if (!profile || !shareUrl) return;
+    console.log('[invite] copy link pressed', shareUrl);
+    await Clipboard.setStringAsync(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShare = async () => {
-    if (!profile) return;
-    const url = SHARE_URL(profile.code);
-    console.log('[invite] share pressed', url);
+    if (!profile || !shareUrl) return;
+    console.log('[invite] share pressed', shareUrl);
     try {
       await Share.share({
-        message: `Rate me on Perception 👀 — ${url}`,
-        url,
+        message: `Rate me on Perception 👀 — ${shareUrl}`,
+        url: shareUrl,
       });
     } catch (e) {
       console.warn('[invite] share error', e);
@@ -121,7 +128,6 @@ export default function InviteScreen() {
       : 'Your Perception Gap is ready.';
 
   const canReveal = responseCount >= 3;
-  const displayUrl = profile ? DISPLAY_URL(profile.code) : '';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
@@ -180,7 +186,7 @@ export default function InviteScreen() {
 
       {/* Invite link box */}
       <View style={styles.linkBox}>
-        <Text style={styles.linkText} numberOfLines={1}>{displayUrl}</Text>
+        <Text style={styles.linkText} numberOfLines={1}>{shareUrl || '…'}</Text>
         <AnimatedPressable
           onPress={handleCopy}
           style={[styles.copyBtn, copied && styles.copyBtnSuccess]}

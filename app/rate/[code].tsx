@@ -129,8 +129,9 @@ export default function RateScreen() {
 
   if (loadingProfile) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.loadingText}>Loading…</Text>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Text style={styles.loadingEmoji}>👀</Text>
+        <Text style={styles.loadingText}>Loading profile…</Text>
       </View>
     );
   }
@@ -257,6 +258,10 @@ const styles = StyleSheet.create({
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingEmoji: {
+    fontSize: 40,
+    marginBottom: 12,
   },
   loadingText: {
     fontFamily: 'Inter_400Regular',

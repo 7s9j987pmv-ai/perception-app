@@ -72,21 +72,36 @@ export async function loadProfile(): Promise<Profile | null> {
 
 export async function loadProfileByCode(code: string): Promise<PublicProfile | null> {
   console.log('[storage] loadProfileByCode', code);
-  // Try Supabase first (cross-device)
+
+  // Primary: Supabase (cross-device, authoritative)
   try {
     const { profile, error } = await apiGetProfile(code);
     if (profile) {
       console.log('[storage] loadProfileByCode: found in Supabase', code);
       return profile;
     }
-    if (error) {
-      console.warn('[storage] loadProfileByCode Supabase error', error);
+    if (error === 'not_found') {
+      // Code genuinely doesn't exist — skip retry and fallback
+      console.log('[storage] loadProfileByCode: not found in Supabase', code);
+    } else if (error) {
+      // Network/server error — retry once after 1s
+      console.warn('[storage] loadProfileByCode Supabase error, retrying...', error);
+      await new Promise(r => setTimeout(r, 1000));
+      const retry = await apiGetProfile(code);
+      if (retry.profile) {
+        console.log('[storage] loadProfileByCode: found in Supabase on retry', code);
+        return retry.profile;
+      }
+      if (retry.error === 'not_found') {
+        console.log('[storage] loadProfileByCode: not found in Supabase (retry)', code);
+        return null;
+      }
     }
   } catch (e) {
     console.warn('[storage] loadProfileByCode Supabase exception', e);
   }
 
-  // Fallback: same-device local storage (backward compat)
+  // Fallback: same-device local storage (backward compat / offline)
   try {
     const json = await AsyncStorage.getItem(PROFILE_BY_CODE_KEY(code));
     if (json) {
