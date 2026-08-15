@@ -261,7 +261,7 @@ const attemptMetroReconnect = () => {
     }
 
     try {
-      if (typeof window === 'undefined') return;
+      if (Platform.OS !== 'web' || typeof window === 'undefined') return;
       const origin = window.location.origin;
 
       const bundleUrl = `${origin}/index.ts.bundle?platform=web&dev=true`;
@@ -349,8 +349,8 @@ export const setupErrorLogging = () => {
     sendErrorToParent('error', 'Console Error', message);
   };
 
-  // Capture unhandled errors in web environment
-  if (typeof window !== 'undefined') {
+  // Capture unhandled errors in web environment only
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
     // Override window.onerror to catch JavaScript errors
     window.onerror = (message, source, lineno, colno, error) => {
       const sourceFile = source ? source.split('/').pop() : 'unknown';
@@ -367,13 +367,11 @@ export const setupErrorLogging = () => {
     };
 
     // Capture unhandled promise rejections (web only)
-    if (Platform.OS === 'web') {
-      window.addEventListener('unhandledrejection', (event) => {
-        const message = `UNHANDLED PROMISE REJECTION: ${event.reason}`;
-        queueLog('error', message, '');
-        sendErrorToParent('error', 'Unhandled Promise Rejection', { reason: event.reason });
-      });
-    }
+    window.addEventListener('unhandledrejection', (event) => {
+      const message = `UNHANDLED PROMISE REJECTION: ${event.reason}`;
+      queueLog('error', message, '');
+      sendErrorToParent('error', 'Unhandled Promise Rejection', { reason: event.reason });
+    });
   }
 };
 

@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, Animated, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '@/constants/Colors';
 
@@ -11,6 +11,7 @@ interface PerceptionBarProps {
 }
 
 export function PerceptionBar({ selfScore, otherScore, label, showDelta = true }: PerceptionBarProps) {
+  const [trackWidth, setTrackWidth] = useState(0);
   const selfAnim = useRef(new Animated.Value(0)).current;
   const otherAnim = useRef(new Animated.Value(0)).current;
 
@@ -18,26 +19,31 @@ export function PerceptionBar({ selfScore, otherScore, label, showDelta = true }
   const otherPct = (otherScore - 1) / 9;
   const diff = otherScore - selfScore;
   const absDiff = Math.abs(diff);
-  const diffText = diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
 
   useEffect(() => {
+    if (trackWidth === 0) return;
     Animated.parallel([
       Animated.timing(selfAnim, {
-        toValue: selfPct,
+        toValue: selfPct * trackWidth,
         duration: 700,
         useNativeDriver: false,
       }),
       Animated.timing(otherAnim, {
-        toValue: otherPct,
+        toValue: otherPct * trackWidth,
         duration: 700,
         delay: 100,
         useNativeDriver: false,
       }),
     ]).start();
-  }, [selfPct, otherPct]);
+  }, [selfPct, otherPct, trackWidth]);
 
-  const minPct = Math.min(selfPct, otherPct);
-  const maxPct = Math.max(selfPct, otherPct);
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setTrackWidth(w);
+  };
+
+  const minPos = Math.min(selfPct, otherPct) * trackWidth;
+  const maxPos = Math.max(selfPct, otherPct) * trackWidth;
 
   return (
     <View style={styles.container}>
@@ -47,56 +53,48 @@ export function PerceptionBar({ selfScore, otherScore, label, showDelta = true }
           <Text style={styles.delta}>Δ {absDiff.toFixed(1)}</Text>
         )}
       </View>
-      <View style={styles.track}>
-        {/* Gradient connector */}
-        <Animated.View
-          style={[
-            styles.connector,
-            {
-              left: selfAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-              right: otherAnim.interpolate({ inputRange: [0, 1], outputRange: ['100%', '0%'] }),
-            },
-          ]}
-        >
-          <LinearGradient
-            colors={selfPct <= otherPct
-              ? [COLORS.self, COLORS.others]
-              : [COLORS.others, COLORS.self]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
+      <View style={styles.track} onLayout={handleLayout}>
+        {trackWidth > 0 && (
+          <>
+            {/* Gradient connector */}
+            <View
+              style={[
+                styles.connector,
+                {
+                  left: minPos,
+                  width: Math.max(0, maxPos - minPos),
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={selfPct <= otherPct
+                  ? [COLORS.self, COLORS.others]
+                  : [COLORS.others, COLORS.self]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
 
-        {/* YOU dot */}
-        <Animated.View
-          style={[
-            styles.dot,
-            styles.selfDot,
-            {
-              left: selfAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
-              marginLeft: -7,
-            },
-          ]}
-        />
+            {/* YOU dot */}
+            <Animated.View
+              style={[
+                styles.dot,
+                styles.selfDot,
+                { left: Animated.subtract(selfAnim, 7) },
+              ]}
+            />
 
-        {/* THEM dot */}
-        <Animated.View
-          style={[
-            styles.dot,
-            styles.otherDot,
-            {
-              left: otherAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
-              marginLeft: -7,
-            },
-          ]}
-        />
+            {/* THEM dot */}
+            <Animated.View
+              style={[
+                styles.dot,
+                styles.otherDot,
+                { left: Animated.subtract(otherAnim, 7) },
+              ]}
+            />
+          </>
+        )}
       </View>
     </View>
   );

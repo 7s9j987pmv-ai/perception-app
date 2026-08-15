@@ -60,7 +60,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider value={PerceptionDarkTheme}>
           <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }} style={{ flex: 1, height: '100%' }}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="self-rating" options={{ headerShown: false }} />
             <Stack.Screen name="locked-in" options={{ headerShown: false }} />

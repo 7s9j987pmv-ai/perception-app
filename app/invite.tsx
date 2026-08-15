@@ -320,6 +320,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.faint,
     textAlign: 'center',
-    marginTop: 'auto',
+    marginTop: 24,
   },
 });

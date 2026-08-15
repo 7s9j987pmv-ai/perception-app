@@ -226,6 +226,6 @@ const styles = StyleSheet.create({
     maxWidth: '45%',
   },
   ctaContainer: {
-    marginTop: 'auto',
+    marginTop: 24,
   },
 });

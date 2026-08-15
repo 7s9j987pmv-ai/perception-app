@@ -29,14 +29,19 @@ interface MiniBarProps {
 }
 
 function MiniBar({ selfScore, otherScore, label }: MiniBarProps) {
-  const selfPct = ((selfScore - 1) / 9) * 100;
-  const otherPct = ((otherScore - 1) / 9) * 100;
+  const [trackWidth, setTrackWidth] = useState(0);
+  const selfPx = trackWidth > 0 ? ((selfScore - 1) / 9) * trackWidth : 0;
+  const otherPx = trackWidth > 0 ? ((otherScore - 1) / 9) * trackWidth : 0;
   return (
     <View style={miniStyles.container}>
       <Text style={miniStyles.label}>{label}</Text>
-      <View style={miniStyles.track}>
-        <View style={[miniStyles.selfDot, { left: `${selfPct}%` }]} />
-        <View style={[miniStyles.otherDot, { left: `${otherPct}%` }]} />
+      <View style={miniStyles.track} onLayout={e => setTrackWidth(e.nativeEvent.layout.width)}>
+        {trackWidth > 0 && (
+          <>
+            <View style={[miniStyles.selfDot, { left: selfPx - 4 }]} />
+            <View style={[miniStyles.otherDot, { left: otherPx - 4 }]} />
+          </>
+        )}
       </View>
     </View>
   );
@@ -329,7 +334,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardFooter: {
-    marginTop: 'auto',
+    flex: 1,
+    justifyContent: 'flex-end',
     gap: 2,
   },
   cardFooterQ: {
