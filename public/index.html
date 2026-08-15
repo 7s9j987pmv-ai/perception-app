@@ -10,20 +10,25 @@
     <title>%WEB_TITLE%</title>
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
-      html,
-      body {
-        height: 100%;
+      html {
+        height: 100vh;
+        height: 100dvh;
         background-color: #0B0A14;
       }
       body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
         overflow: hidden;
         background-color: #0B0A14;
       }
       #root {
         display: flex;
-        min-height: 100%;
-        flex: 1;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
         background-color: #0B0A14;
+        overflow: hidden;
       }
     </style>
   </head>
