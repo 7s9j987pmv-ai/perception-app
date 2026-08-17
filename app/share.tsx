@@ -75,7 +75,7 @@ export default function ShareScreen() {
 
   const handleShare = async () => {
     if (!profile || !results) return;
-    const url = `perception://rate/${profile.code}`;
+    const url = `https://perception-app.vercel.app/rate/${profile.code}`;
     const avgGapDisplay = results.avgGap.toFixed(1);
     console.log('[share] share to story pressed', url);
     try {
