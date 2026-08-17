@@ -35,10 +35,7 @@ export default function InviteScreen() {
 
   useEffect(() => {
     if (!profile) return;
-    let origin = 'https://perception-app.vercel.app';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      origin = window.location.origin;
-    }
+    const origin = 'https://perception-app.vercel.app';
     setShareUrl(`${origin}/rate/${profile.code}`);
   }, [profile]);
 
