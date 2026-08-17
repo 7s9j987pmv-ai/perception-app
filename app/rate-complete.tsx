@@ -32,7 +32,7 @@ export default function RateCompleteScreen() {
 
   const handleNotNow = () => {
     console.log('[rate-complete] Not right now pressed');
-    // Do nothing / go back
+    router.replace('/');
   };
 
   const youText = 'YOU';
